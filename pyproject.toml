@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gitignore-tool"
+version = "0.2.0"
+description = "CLI interactiva y no interactiva para crear o modificar .gitignore"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "OpenAI" }
+]
+license = { text = "MIT" }
+keywords = ["git", "gitignore", "cli", "terminal", "developer-tools"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Environment :: Console",
+  "Topic :: Software Development :: Version Control :: Git",
+]
+
+[project.scripts]
+gitignore-tool = "gitignore_tool.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
