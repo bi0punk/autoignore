@@ -1,37 +1,45 @@
-# gitignore-tool
+# autoignore
+
+CLI instalable (`gitignore-tool`) para crear, modificar y auditar archivos `.gitignore` desde la terminal: navegación interactiva, alta/borrado de patrones, listado y verificación con `git check-ignore`.
 
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python)](https://python.org)
 [![CI](https://github.com/drbash/autoignore/actions/workflows/ci.yml/badge.svg)](https://github.com/drbash/autoignore/actions)
 
-CLI interactiva instalable para crear, modificar y auditar archivos `.gitignore` desde la terminal.
-
 ## Contenido
 
-- [Características](#caracter%C3%ADsticas)
+- [Características](#características)
+- [Arquitectura](#arquitectura)
 - [Stack](#stack)
-- [Estructura](#estructura)
-- [Requisitos](#requisitos)
-- [Instalación](#instalaci%C3%B3n)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Instalación](#instalación)
 - [Uso](#uso)
-- [Tests](#tests)
-- [Configuración](#configuraci%C3%B3n)
-- [CI/CD](#cicd)
-- [Demo rápida](#demo-r%C3%A1pida)
-- [Nota sobre Git](#nota-importante-sobre-git)
-- [Flujo recomendado](#flujo-recomendado)
-- [Limitaciones / Roadmap](#limitaciones--roadmap)
+- [Tests / CI](#tests--ci)
+- [Roadmap](#roadmap)
 - [Licencia](#licencia)
 
 ## Características
 
-- **Navegación interactiva** por archivos y directorios
-- **Alta de patrones** en `.gitignore`
-- **Remoción de patrones** exactos
-- **Listado** del contenido actual de `.gitignore`
-- **Verificación** con `git check-ignore`
-- **Modo no interactivo** para scripting
-- **Repo demo** listo para probar
+- Navegación interactiva por archivos y directorios (`browse`).
+- Alta de patrones en `.gitignore` (`add`).
+- Remoción de patrones exactos (`remove`).
+- Listado del contenido actual de `.gitignore` (`list`).
+- Verificación con `git check-ignore` (`doctor`, integrada también con `--verify` en `add`).
+- Modo no interactivo para scripting.
+
+## Arquitectura
+
+```mermaid
+flowchart TD
+  A[gitignore-tool CLI<br/>browse / add / remove / list / doctor] --> B{--repo?}
+  B -->|no| C[repo actual .]
+  B -->|sí| D[ruta de repositorio]
+  C --> E[gitignore_tool/cli.py<br/>subcomandos]
+  D --> E
+  E --> F[lectura/escritura .gitignore]
+  F --> G[git check-ignore -v<br/>verificación]
+  E --> H[rich menús interactivos<br/>solo en browse]
+```
 
 ## Stack
 
@@ -41,8 +49,9 @@ CLI interactiva instalable para crear, modificar y auditar archivos `.gitignore`
 | CLI | `argparse` (stdlib) |
 | Interacción | `rich` para menús interactivos |
 | Testing | pytest |
+| Lint | Ruff |
 
-## Estructura
+## Estructura del repositorio
 
 ```
 autoignore/
@@ -51,22 +60,20 @@ autoignore/
 │       ├── __init__.py
 │       └── cli.py              # CLI principal
 ├── scripts/
-│   └── demo_run.sh             # Script de demo
-├── demo_repo/                  # Repositorio de prueba
+│   ├── install_local.sh        # pip install -e .
+│   ├── demo_run.sh             # Script de demo
+│   └── demo_interactive.sh     # Demo del modo interactivo
 ├── tests/
+│   └── test_smoke.py
 ├── .env.example
-├── .github/workflows/ci.yml
 ├── pyproject.toml
-└── README.md
+├── .github/workflows/ci.yml
+└── LICENSE
 ```
 
-## Requisitos
-
-- Linux recomendado
-- Python 3.10+
-- Git disponible en PATH
-
 ## Instalación
+
+Requisitos: Linux recomendado, Python 3.10+ y Git en PATH.
 
 ```bash
 git clone https://github.com/drbash/autoignore.git
@@ -76,79 +83,36 @@ python3 -m pip install -e .
 
 ## Uso
 
-### Navegación interactiva
-
 ```bash
-gitignore-tool browse --repo ./demo_repo
+# Navegación interactiva
+gitignore-tool browse --repo ./un/repo
+
+# Agregar una ruta directamente
+gitignore-tool add .env --repo ./un/repo
+gitignore-tool add logs/ --repo ./un/repo --verify
+
+# Listar reglas actuales
+gitignore-tool list --repo ./un/repo
+
+# Eliminar una regla exacta
+gitignore-tool remove logs/ --repo ./un/repo
+
+# Verificar una ruta con Git
+gitignore-tool doctor logs/app.log --repo ./un/repo
 ```
 
-### Agregar una ruta directamente
+Nota: si un archivo ya estaba trackeado por Git, agregarlo a `.gitignore` no basta; hay que sacarlo del índice con `git rm --cached ruta/al/archivo`.
 
-```bash
-gitignore-tool add .env --repo ./demo_repo
-gitignore-tool add logs/ --repo ./demo_repo
-```
-
-### Listar reglas actuales
-
-```bash
-gitignore-tool list --repo ./demo_repo
-```
-
-### Eliminar una regla exacta
-
-```bash
-gitignore-tool remove logs/ --repo ./demo_repo
-```
-
-### Verificar una ruta con Git
-
-```bash
-gitignore-tool doctor logs/app.log --repo ./demo_repo
-```
-
-## Tests
+## Tests / CI
 
 ```bash
 pip install pytest
 pytest tests/ -v
 ```
 
-## Configuración
+CI: GitHub Actions (`.github/workflows/ci.yml`) ejecuta Ruff y pytest en cada push/PR.
 
-Variables de entorno (ver `.env.example`):
-
-| Variable | Default | Descripción |
-|---|---|---|
-| `GIT_REPO_PATH` | `.` | Ruta al repositorio objetivo |
-
-## CI/CD
-
-GitHub Actions ejecuta lint (Ruff) y tests (pytest) en cada push/PR a main/master.
-
-## Demo rápida
-
-```bash
-chmod +x scripts/demo_run.sh
-./scripts/demo_run.sh
-```
-
-## Nota importante sobre Git
-
-Si un archivo ya estaba trackeado por Git, agregarlo a `.gitignore` no basta. Debes sacarlo del índice:
-
-```bash
-git rm --cached ruta/al/archivo
-```
-
-## Flujo recomendado
-
-1. Instalar en editable
-2. Probar con `demo_repo`
-3. Ejecutar sobre un repositorio real
-4. Extender plantillas o reglas por stack si lo necesitas
-
-## Limitaciones / Roadmap
+## Roadmap
 
 - [x] Navegación interactiva + comandos directos
 - [x] Verificación con `git check-ignore`
@@ -159,4 +123,4 @@ git rm --cached ruta/al/archivo
 
 ## Licencia
 
-MIT
+MIT — ver [LICENSE](LICENSE).
