@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 import argparse
 import subprocess
-import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional
 
 IGNORE_ALWAYS = {".git", "__pycache__", ".pytest_cache", ".mypy_cache"}
 COMMENT_HEADER = "# Archivo generado/actualizado por gitignore-tool"
@@ -44,7 +42,7 @@ def is_git_repo(path: Path) -> bool:
     return (path / ".git").exists()
 
 
-def find_git_root(start: Path) -> Optional[Path]:
+def find_git_root(start: Path) -> Path | None:
     current = start.resolve()
     for candidate in [current, *current.parents]:
         if is_git_repo(candidate):
@@ -52,7 +50,7 @@ def find_git_root(start: Path) -> Optional[Path]:
     return None
 
 
-def resolve_repo(repo_arg: Optional[str]) -> RepoContext:
+def resolve_repo(repo_arg: str | None) -> RepoContext:
     start_path = Path(repo_arg).expanduser().resolve() if repo_arg else Path.cwd()
     repo_root = find_git_root(start_path)
     if repo_root is None:
@@ -68,7 +66,7 @@ def ensure_gitignore_exists(path: Path) -> None:
         path.write_text(COMMENT_HEADER + "\n", encoding="utf-8")
 
 
-def read_gitignore_lines(path: Path) -> List[str]:
+def read_gitignore_lines(path: Path) -> list[str]:
     if not path.exists():
         return []
     return path.read_text(encoding="utf-8").splitlines()
@@ -84,8 +82,8 @@ def normalized_existing_patterns(lines: Iterable[str]) -> set[str]:
     return items
 
 
-def list_entries(path: Path) -> List[Path]:
-    entries: List[Path] = []
+def list_entries(path: Path) -> list[Path]:
+    entries: list[Path] = []
     try:
         for entry in path.iterdir():
             if entry.name in IGNORE_ALWAYS:
@@ -124,7 +122,7 @@ def remove_pattern_from_gitignore(gitignore_path: Path, pattern: str) -> bool:
     if not gitignore_path.exists():
         return False
     lines = read_gitignore_lines(gitignore_path)
-    new_lines: List[str] = []
+    new_lines: list[str] = []
     removed = False
     for line in lines:
         if line.strip() == pattern:
@@ -132,15 +130,22 @@ def remove_pattern_from_gitignore(gitignore_path: Path, pattern: str) -> bool:
             continue
         new_lines.append(line)
     if removed:
-        gitignore_path.write_text("\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
+        gitignore_path.write_text(
+            "\n".join(new_lines).rstrip() + "\n", encoding="utf-8"
+        )
     return removed
 
 
 def is_git_available() -> bool:
     try:
-        subprocess.run(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        subprocess.run(
+            ["git", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+        )
         return True
-    except Exception:
+    except (subprocess.CalledProcessError, OSError):
         return False
 
 
@@ -194,7 +199,9 @@ def verify_target(repo_root: Path, target: Path) -> None:
             print(output)
 
     if tracked:
-        log_warn("La ruta ya estaba trackeada por Git. El .gitignore no la sacará del índice.")
+        log_warn(
+            "La ruta ya estaba trackeada por Git. El .gitignore no la sacará del índice."
+        )
         print(f'       Ejecuta: git -C "{repo_root}" rm --cached "{rel}"')
 
 
@@ -206,7 +213,9 @@ def path_inside_repo(repo_root: Path, raw_path: str) -> Path:
     try:
         candidate.relative_to(repo_root.resolve())
     except ValueError as exc:
-        raise SystemExit(f"[ERROR] La ruta está fuera del repositorio: {candidate}") from exc
+        raise SystemExit(
+            f"[ERROR] La ruta está fuera del repositorio: {candidate}"
+        ) from exc
     return candidate
 
 
@@ -218,7 +227,7 @@ def prompt_choice(prompt: str, valid: set[str]) -> str:
         log_error(f"Opción inválida. Válidas: {', '.join(sorted(valid))}")
 
 
-def render_entries(current_path: Path, entries: List[Path], repo_root: Path) -> None:
+def render_entries(current_path: Path, entries: list[Path], repo_root: Path) -> None:
     print_header(f"Navegando: {current_path}")
     print(f"Repo root: {repo_root}\n")
     print("Entradas disponibles:\n")
@@ -280,8 +289,13 @@ def interactive_browser(ctx: RepoContext) -> None:
                 continue
             selected = entries[idx]
             if selected.is_dir():
-                print(f"\nHas seleccionado el directorio: {selected.relative_to(ctx.repo_root)}")
-                action = prompt_choice("¿Qué deseas hacer? [i]gnorar / [e]ntrar / [c]ancelar: ", {"i", "e", "c"})
+                print(
+                    f"\nHas seleccionado el directorio: {selected.relative_to(ctx.repo_root)}"
+                )
+                action = prompt_choice(
+                    "¿Qué deseas hacer? [i]gnorar / [e]ntrar / [c]ancelar: ",
+                    {"i", "e", "c"},
+                )
                 if action == "e":
                     current_path = selected
                     continue
@@ -293,7 +307,9 @@ def interactive_browser(ctx: RepoContext) -> None:
                 log_ok(f"Patrón agregado a .gitignore: {pattern}")
             else:
                 log_info(f"El patrón ya existía en .gitignore: {pattern}")
-            verify = prompt_choice("¿Verificar con git check-ignore? [s/n]: ", {"s", "n"})
+            verify = prompt_choice(
+                "¿Verificar con git check-ignore? [s/n]: ", {"s", "n"}
+            )
             if verify == "s":
                 verify_target(ctx.repo_root, selected)
             continue
@@ -363,27 +379,45 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     browse = subparsers.add_parser("browse", help="Navegación interactiva")
-    browse.add_argument("--repo", type=str, default=None, help="Ruta al repositorio Git")
+    browse.add_argument(
+        "--repo", type=str, default=None, help="Ruta al repositorio Git"
+    )
     browse.set_defaults(func=cmd_browse)
 
     add = subparsers.add_parser("add", help="Agregar una ruta al .gitignore")
-    add.add_argument("path", type=str, help="Ruta de archivo o directorio relativa al repo")
+    add.add_argument(
+        "path", type=str, help="Ruta de archivo o directorio relativa al repo"
+    )
     add.add_argument("--repo", type=str, default=None, help="Ruta al repositorio Git")
-    add.add_argument("--verify", action="store_true", help="Verifica la ruta con git check-ignore")
+    add.add_argument(
+        "--verify", action="store_true", help="Verifica la ruta con git check-ignore"
+    )
     add.set_defaults(func=cmd_add)
 
-    remove = subparsers.add_parser("remove", help="Eliminar un patrón exacto del .gitignore")
+    remove = subparsers.add_parser(
+        "remove", help="Eliminar un patrón exacto del .gitignore"
+    )
     remove.add_argument("pattern", type=str, help="Patrón exacto a eliminar")
-    remove.add_argument("--repo", type=str, default=None, help="Ruta al repositorio Git")
+    remove.add_argument(
+        "--repo", type=str, default=None, help="Ruta al repositorio Git"
+    )
     remove.set_defaults(func=cmd_remove)
 
     list_cmd = subparsers.add_parser("list", help="Mostrar contenido del .gitignore")
-    list_cmd.add_argument("--repo", type=str, default=None, help="Ruta al repositorio Git")
+    list_cmd.add_argument(
+        "--repo", type=str, default=None, help="Ruta al repositorio Git"
+    )
     list_cmd.set_defaults(func=cmd_list)
 
-    doctor = subparsers.add_parser("doctor", help="Verificar si una ruta está siendo ignorada")
-    doctor.add_argument("path", type=str, help="Ruta de archivo o directorio relativa al repo")
-    doctor.add_argument("--repo", type=str, default=None, help="Ruta al repositorio Git")
+    doctor = subparsers.add_parser(
+        "doctor", help="Verificar si una ruta está siendo ignorada"
+    )
+    doctor.add_argument(
+        "path", type=str, help="Ruta de archivo o directorio relativa al repo"
+    )
+    doctor.add_argument(
+        "--repo", type=str, default=None, help="Ruta al repositorio Git"
+    )
     doctor.set_defaults(func=cmd_doctor)
 
     return parser
